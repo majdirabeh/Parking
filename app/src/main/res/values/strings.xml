@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Parking</string>
+    <string name="mapbox_access_token">"pk.eyJ1IjoibWFqZGlyYWJlaGRldiIsImEiOiJja29oNnM5aXcxMzViMnNvYXlhYXR5c25qIn0.ybyGi8l_yyexuiQTGqUlOA"</string>
+    <string name="park">Park</string>
+    <string name="carsharing">Carsharing</string>
+    <string name="bike">Bike</string>
+    <string name="transport">Transport</string>
+</resources>
