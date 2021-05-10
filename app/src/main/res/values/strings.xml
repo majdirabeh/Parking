@@ -5,4 +5,7 @@
     <string name="carsharing">Carsharing</string>
     <string name="bike">Bike</string>
     <string name="transport">Transport</string>
+
+    <string name="message_permission">"Please accept permission location to start map"</string>
+
 </resources>

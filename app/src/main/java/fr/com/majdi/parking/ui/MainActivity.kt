@@ -1,15 +1,8 @@
 package fr.com.majdi.parking.ui
 
-import android.Manifest
-import android.annotation.SuppressLint
 import android.os.Bundle
-import android.util.Log
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.res.ResourcesCompat
-import androidx.lifecycle.Observer
-import com.google.gson.Gson
-import com.google.gson.GsonBuilder
 import com.google.gson.JsonElement
 import com.mapbox.mapboxsdk.camera.CameraPosition
 import com.mapbox.mapboxsdk.camera.CameraUpdateFactory
@@ -19,68 +12,36 @@ import com.mapbox.mapboxsdk.maps.Style
 import com.mapbox.mapboxsdk.plugins.annotation.SymbolManager
 import com.mapbox.mapboxsdk.plugins.annotation.SymbolOptions
 import com.mapbox.mapboxsdk.utils.BitmapUtils
-import com.tbruyelle.rxpermissions2.RxPermissions
 import fr.com.majdi.parking.R
 import fr.com.majdi.parking.databinding.ActivityMainBinding
-import fr.com.majdi.parking.model.Fields
-import fr.com.majdi.parking.model.ResponseParking
 import fr.com.majdi.parking.utils.Constants.Companion.ICON_ID
-import fr.com.majdi.parking.utils.Constants.Companion.ORLEANS_LATITUDE
-import fr.com.majdi.parking.utils.Constants.Companion.ORLEANS_LONGITUDE
+import fr.com.majdi.parking.utils.Constants.Companion.INTENT_SHEET_DIALOG
+import fr.com.majdi.parking.utils.Constants.Companion.orleansLocation
+import fr.com.majdi.parking.utils.Tools
 import org.koin.android.viewmodel.ext.android.viewModel
 
 
 class MainActivity : AppCompatActivity(), OptionsFragment.ItemClickListener {
 
+    private lateinit var activityMainBinding: ActivityMainBinding
     private val viewMainModel by viewModel<MainViewModel>()
-    private var rxPermissions: RxPermissions? = null
-    lateinit var activityMainBinding: ActivityMainBinding
+
     private var mapboxMap: MapboxMap? = null
     private lateinit var symbolManager: SymbolManager
-    private val gson = GsonBuilder().create()
+    private var listOptions = mutableListOf<SymbolOptions>()
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         activityMainBinding = ActivityMainBinding.inflate(layoutInflater)
         val view = activityMainBinding.root
         setContentView(view)
-        initPermission(savedInstanceState)
 
-    }
-
-    private fun showOptionPopup(jsonElement: JsonElement) {
-        supportFragmentManager.let {
-
-            val fields = gson.fromJson(jsonElement, Fields::class.java)
-
-            val bundle = Bundle()
-            bundle.putSerializable("Fields", fields)
-            OptionsFragment.newInstance(bundle).apply {
-                show(it, tag)
-            }
+        if (Tools.initPermission(this)) {
+            initMapBox(savedInstanceState)
+        } else {
+            Tools.showToast(this, resources.getString(R.string.message_permission))
         }
-    }
-
-
-    @SuppressLint("CheckResult")
-    private fun initPermission(savedInstanceState: Bundle?) {
-        rxPermissions = RxPermissions(this)
-        rxPermissions!!
-            .request(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            )
-            .subscribe { granted ->
-                if (granted) { // Always true pre-M
-                    initMapBox(savedInstanceState)
-                } else {
-                    Toast.makeText(
-                        this,
-                        "Please accept permission location to start map",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-            }
 
     }
 
@@ -89,7 +50,6 @@ class MainActivity : AppCompatActivity(), OptionsFragment.ItemClickListener {
         activityMainBinding.mapView.getMapAsync { mapbox ->
             mapboxMap = mapbox
 
-            val orleansLocation = LatLng(ORLEANS_LATITUDE, ORLEANS_LONGITUDE)
 
             val position = CameraPosition.Builder()
                 .target(orleansLocation)
@@ -101,7 +61,7 @@ class MainActivity : AppCompatActivity(), OptionsFragment.ItemClickListener {
 
             mapboxMap!!.setStyle(Style.MAPBOX_STREETS) { style ->
                 val selectedMarkerIconDrawable = ResourcesCompat.getDrawable(
-                    this.resources,
+                    resources,
                     R.drawable.parking,
                     null
                 )
@@ -121,22 +81,26 @@ class MainActivity : AppCompatActivity(), OptionsFragment.ItemClickListener {
                 }
             }
         }
+    }
 
-
+    private fun showOptionPopup(jsonElement: JsonElement) {
+        supportFragmentManager.let {
+            val fields = Tools.convertJsonToModel(jsonElement)
+            val bundle = Bundle()
+            bundle.putSerializable(INTENT_SHEET_DIALOG, fields)
+            OptionsFragment.newInstance(bundle).apply {
+                show(it, tag)
+            }
+        }
     }
 
     private fun getListParking() {
-        viewMainModel.listParking.observe(this, Observer {
+        viewMainModel.listParking.observe(this, {
             if (it.records.isNotEmpty()) {
                 for (parking in it.records) {
-                    Log.e("MainActivity", parking.toString())
-                    // Add symbol at specified lat/lon.
                     val latLng = LatLng(parking.fields.coords[0], parking.fields.coords[1])
-
-
-                    val jsonElement = gson.toJsonTree(parking.fields)
-
-                    symbolManager.create(
+                    val jsonElement = Tools.convertToJson(parking.fields)
+                    listOptions.add(
                         SymbolOptions()
                             .withLatLng(latLng)
                             .withIconImage(ICON_ID)
@@ -144,9 +108,9 @@ class MainActivity : AppCompatActivity(), OptionsFragment.ItemClickListener {
                             .withIconSize(0.1f)
                     )
                 }
+                symbolManager.create(listOptions)
             }
         })
-
     }
 
     override fun onStart() {
@@ -179,8 +143,16 @@ class MainActivity : AppCompatActivity(), OptionsFragment.ItemClickListener {
         activityMainBinding.mapView.onDestroy()
     }
 
-    override fun onItemClick(item: String) {
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        activityMainBinding.mapView.onSaveInstanceState(outState)
+    }
 
+    override fun onItemClick(parkingLocation: LatLng, mode: Char) {
+        Tools.navigateToMap(
+            this, orleansLocation.latitude, orleansLocation.longitude,
+            parkingLocation.latitude, parkingLocation.longitude, mode
+        )
     }
 
 }

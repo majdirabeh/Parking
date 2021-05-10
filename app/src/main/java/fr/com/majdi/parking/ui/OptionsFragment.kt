@@ -6,11 +6,16 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.LinearLayout
 import android.widget.TextView
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
+import com.mapbox.mapboxsdk.geometry.LatLng
 import fr.com.majdi.parking.R
 import fr.com.majdi.parking.model.Fields
 import fr.com.majdi.parking.model.ResponseParking
+import fr.com.majdi.parking.utils.Constants
+import fr.com.majdi.parking.utils.Constants.Companion.INTENT_SHEET_DIALOG
+import fr.com.majdi.parking.utils.Tools
 
 /**
  * Created by Majdi RABEH on 09/05/2021.
@@ -23,7 +28,7 @@ class OptionsFragment : BottomSheetDialogFragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (arguments != null) {
-            fields = arguments!!.getSerializable("Fields") as Fields
+            fields = arguments!!.getSerializable(INTENT_SHEET_DIALOG) as Fields
         }
     }
 
@@ -43,13 +48,34 @@ class OptionsFragment : BottomSheetDialogFragment() {
 
     @SuppressLint("SetTextI18n")
     private fun setUpViews(view: View) {
-        // We can have cross button on the top right corner for providing elemnet to dismiss the bottom sheet
-        //iv_close.setOnClickListener { dismissAllowingStateLoss() }
-        view.setOnClickListener {
-            dismissAllowingStateLoss()
-            mListener?.onItemClick("Download")
 
+        val parkingLocation = LatLng(fields.coords[0], fields.coords[1])
+
+        view.findViewById<LinearLayout>(R.id.layout_transport).setOnClickListener {
+            dismissAllowingStateLoss()
+            mListener?.onItemClick(parkingLocation, 't')
         }
+
+        view.findViewById<LinearLayout>(R.id.layout_bike).setOnClickListener {
+            dismissAllowingStateLoss()
+            mListener?.onItemClick(parkingLocation, 'b')
+        }
+
+        view.findViewById<LinearLayout>(R.id.layout_cars).setOnClickListener {
+            dismissAllowingStateLoss()
+            mListener?.onItemClick(parkingLocation, 'd')
+        }
+
+        view.findViewById<LinearLayout>(R.id.layout_park).setOnClickListener {
+            dismissAllowingStateLoss()
+            mListener?.onItemClick(parkingLocation, 'w')
+        }
+
+        view.findViewById<TextView>(R.id.distance_parking).text = Tools.distanceToParking(
+            Constants.orleansLocation,
+            parkingLocation
+        ).toString() + " m"
+
         view.findViewById<TextView>(R.id.name_parking).text = fields.name
         view.findViewById<TextView>(R.id.free_parking).text = fields.dispo.toString() + " places"
         view.findViewById<TextView>(R.id.capacity_parking).text =
@@ -62,11 +88,10 @@ class OptionsFragment : BottomSheetDialogFragment() {
     override fun onAttach(context: Context) {
         super.onAttach(context)
         if (context is ItemClickListener) {
-            mListener = context as ItemClickListener
+            mListener = context
         } else {
             throw RuntimeException(
-                context.toString()
-                    .toString() + " must implement ItemClickListener"
+                context.toString().toString() + " must implement ItemClickListener"
             )
         }
     }
@@ -77,7 +102,7 @@ class OptionsFragment : BottomSheetDialogFragment() {
     }
 
     interface ItemClickListener {
-        fun onItemClick(item: String)
+        fun onItemClick(parkingLocation: LatLng, mode: Char)
     }
 
     companion object {
